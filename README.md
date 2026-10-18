@@ -36,9 +36,9 @@ status: FAIL  (2 errors, 1 warnings, 0 notes)
 ## Install
 
 ```bash
-npm i -g mcp-doctor
+npm i -g mcp-diagnose
 # or without installing:
-npx github:420runingman420-blip/mcp-doctor .mcp.json --live
+npx mcp-diagnose .mcp.json --live
 ```
 
 ## Usage

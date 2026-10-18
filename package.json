@@ -1,14 +1,35 @@
 {
-  "name": "mcp-doctor",
+  "name": "mcp-diagnose",
   "version": "1.0.0",
   "description": "Diagnose MCP server configs, transports, and tool schemas. Finds the bug, tells you the fix.",
   "type": "module",
-  "bin": { "mcp-doctor": "src/cli.js" },
+  "bin": {
+    "mcp-doctor": "src/cli.js"
+  },
   "main": "src/checks.js",
-  "scripts": { "test": "node --test \"test/*.test.js\"" },
-  "keywords": ["mcp", "model-context-protocol", "claude", "debug", "doctor", "linter", "diagnostics"],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "debug",
+    "doctor",
+    "linter",
+    "diagnostics"
+  ],
   "license": "MIT",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {},
-  "files": ["src", "README.md", "LICENSE"]
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  }
 }
