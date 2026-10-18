@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mcp-doctor — find out why your MCP server won't connect</title>
+<meta name="description" content="Paste your MCP server config or tools/list output and get instant, actionable diagnostics. Free, local, no upload.">
+<style>
+  :root { --bg:#0b0e14; --panel:#11151f; --border:#232a38; --text:#dce3f0; --dim:#8b96ab;
+          --err:#ff6b6b; --warn:#ffc857; --info:#74c0fc; --ok:#51cf66; --accent:#6c8cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h1 .logo { color: var(--accent); }
+  .sub { color: var(--dim); margin-bottom: 28px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+  label { display:block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+  textarea { width: 100%; height: 220px; background: #0d1119; color: var(--text); border: 1px solid var(--border);
+             border-radius: 8px; padding: 12px; font: 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px;
+           font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--dim); }
+  button:hover { filter: brightness(1.1); }
+  .hint { color: var(--dim); font-size: 13px; }
+  .badge { display:inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+  .badge.pass { background: rgba(81,207,102,.15); color: var(--ok); }
+  .badge.fail { background: rgba(255,107,107,.15); color: var(--err); }
+  .badge.warn { background: rgba(255,200,87,.15); color: var(--warn); }
+  .finding { border-left: 3px solid var(--border); padding: 10px 14px; margin: 10px 0; background: #0d1119; border-radius: 0 8px 8px 0; }
+  .finding.error { border-color: var(--err); }
+  .finding.warn { border-color: var(--warn); }
+  .finding.info { border-color: var(--info); }
+  .finding .tag { font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+  .finding.error .tag { color: var(--err); } .finding.warn .tag { color: var(--warn); } .finding.info .tag { color: var(--info); }
+  .finding .srv { color: var(--dim); font-size: 12px; margin-left: 8px; }
+  .fix { margin-top: 6px; color: var(--dim); font-size: 13px; }
+  .fix b { color: var(--ok); }
+  .ok-line { color: var(--ok); font-weight: 600; }
+  .footer { color: var(--dim); font-size: 13px; margin-top: 30px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .kbd { font-family: ui-monospace,monospace; background:#0d1119; border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:12px; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="logo">⚕</span> mcp-doctor<span id="badge"></span></h1>
+  <p class="sub">Paste your MCP config (or a <span class="kbd">tools/list</span> response) and get the exact bug and the exact fix.
+  Runs 100% in your browser — nothing leaves this tab. Also available as a CLI: <span class="kbd">npm i -g mcp-doctor</span></p>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <label>MCP server config</label>
+        <textarea id="cfg" placeholder='{"mcpServers": {"my-server": {"command": "npx", "args": ["-y", "some-mcp-server"]}}}'></textarea>
+        <div class="row" style="margin-top:12px">
+          <button onclick="checkCfg()">Diagnose config</button>
+          <button class="ghost" onclick="loadExample()">Load broken example</button>
+          <span class="hint">Works with Claude Desktop / Claude Code / Cursor .mcp.json</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <label>tools/list response (optional)</label>
+        <textarea id="tools" placeholder='{"tools": [{"name": "...", "description": "...", "inputSchema": {...}}]}'></textarea>
+        <div class="row" style="margin-top:12px">
+          <button onclick="checkTools()">Diagnose tools</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="out"></div>
+
+  <p class="footer">
+    Free forever. <a href="https://github.com/420runingman420-blip/mcp-doctor">Repo & CLI on GitHub → mcp-doctor</a> ·
+    <a href="#" id="pack-link">MCP Ship-Ready Pack (CLI + hardened templates + CI) — $19</a><br>
+    The CLI can do more: <span class="kbd">mcp-doctor config.json --live</span> actually runs the server and does a real
+    initialize handshake, then reports where it breaks.
+  </p>
+</div>
+
+<script type="module">
+  import { diagnoseConfig, diagnoseTools, renderReport } from "/src/checks.js";
+
+  const order = { error: 0, warn: 1, info: 2 };
+  const label = { error: "ERROR", warn: "WARNING", info: "NOTE" };
+
+  function render(container, result) {
+    container.innerHTML = "";
+    const s = result.summary;
+    const badge = document.getElementById("badge");
+    const b = document.createElement("span");
+    b.className = "badge " + (s.errors ? "fail" : s.warns ? "warn" : "pass");
+    b.textContent = s.status;
+    badge.replaceWith(b); b.id = "badge"; document.querySelector("h1").appendChild(b);
+
+    const box = document.createElement("div");
+    box.className = "card";
+    const sum = document.createElement("div");
+    sum.innerHTML = `<b>${s.errors} errors · ${s.warns} warnings · ${s.infos} notes</b>`;
+    box.appendChild(sum);
+    if (!result.findings.length) {
+      const ok = document.createElement("div");
+      ok.className = "ok-line"; ok.textContent = "✓ no problems found";
+      box.appendChild(ok);
+    }
+    for (const f of [...result.findings].sort((a, b2) => order[a.severity] - order[b2.severity])) {
+      const d = document.createElement("div");
+      d.className = "finding " + f.severity;
+      const head = document.createElement("div");
+      const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = label[f.severity];
+      const srv = document.createElement("span"); srv.className = "srv"; srv.textContent = f.server;
+      head.append(tag, srv, document.createTextNode(" " + f.message));
+      d.appendChild(head);
+      if (f.fix) {
+        const fix = document.createElement("div"); fix.className = "fix";
+        fix.innerHTML = "<b>fix:</b> " + f.fix.replace(/</g, "&lt;");
+        d.appendChild(fix);
+      }
+      box.appendChild(d);
+    }
+    container.appendChild(box);
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  window.checkCfg = () => {
+    const raw = document.getElementById("cfg").value.trim();
+    if (!raw) return;
+    render(document.getElementById("out"), diagnoseConfig(raw));
+  };
+  window.checkTools = () => {
+    const raw = document.getElementById("tools").value.trim();
+    if (!raw) return;
+    let parsed; try { parsed = JSON.parse(raw); } catch (e) {
+      alert("Not valid JSON: " + e.message); return;
+    }
+    render(document.getElementById("out"), diagnoseTools(parsed));
+  };
+  window.loadExample = () => {
+    document.getElementById("cfg").value = JSON.stringify({
+      mcpServers: {
+        "my server": { type: "stdion", command: "npx", args: [] },
+        weather: { url: "0.0.0.0:8080/sse", headees: { Authorization: "sk-123" } },
+        db: { command: "python", args: ["mcp_server.py"], env: { DB_URL: "${DATABASE_URL}", DEBUG: true } }
+      }
+    }, null, 2);
+    checkCfg();
+  };
+</script>
+</body>
+</html>
