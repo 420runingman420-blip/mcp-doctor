@@ -64,3 +64,8 @@ test("localhost warns", () => {
   const r = diagnoseConfig({ mcpServers: { a: { url: "http://localhost:8080/mcp" } } });
   assert.ok(r.findings.some(f => f.code === "url-localhost"));
 });
+
+test("npx with -y before package name is valid", () => {
+  const r = diagnoseConfig({ mcpServers: { fs: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "/x"] } } });
+  assert.equal(r.findings.find(f => f.code === "npx-no-pkg"), undefined);
+});
